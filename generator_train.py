@@ -59,7 +59,6 @@ class EEGDataset4D(Dataset):
 
             assert raw.shape[0] == de.shape[0] == lbl.shape[0]
 
-            # ---------- reshape to (trial, second, ...) ----------
             raw = raw.reshape(40, 60, 128, 9, 9)
             de  = de.reshape(40, 60, 8, 9, 9)
             lbl = lbl.reshape(40, 60)
@@ -99,9 +98,7 @@ class EEGDataset4D(Dataset):
         raw = torch.from_numpy(self.raw_seg[idx]).float()
         lbl = torch.tensor(self.lbl_seg[idx]).long()
         return de, raw, lbl
-# -------------------------
 # Positional Encoding
-# -------------------------
 class SinusoidalPositionalEncoding(nn.Module):
     def __init__(self, d_model, max_len=5000):
         super().__init__()
@@ -119,9 +116,7 @@ class SinusoidalPositionalEncoding(nn.Module):
         return x + self.pe[:, :L]
 
 
-# -------------------------
 # 2D Conv Block
-# -------------------------
 class Conv2DBlock(nn.Module):
     def __init__(self, in_ch, out_ch, act=nn.GELU):
         super().__init__()
@@ -135,9 +130,7 @@ class Conv2DBlock(nn.Module):
         return self.block(x)
 
 
-# -------------------------
 # 2D CNN Encoder → Transformer → 2D Decoder
-# -------------------------
 class EEGGenerator2DTransformer(nn.Module):
     def __init__(
         self,
@@ -228,9 +221,6 @@ class InceptionBlock(nn.Module):
         return torch.cat([x1, x3, x5], dim=1)
 
 
-# ---------------------------------------------------------
-# SE 通道注意力
-# ---------------------------------------------------------
 class SEBlock(nn.Module):
     def __init__(self, channels, reduction=8):
         super().__init__()
@@ -247,10 +237,6 @@ class SEBlock(nn.Module):
         y = self.fc(y).view(b, c, 1, 1)
         return x * y
 
-
-# ---------------------------------------------------------
-# 空间注意力模块 (CBAM 风格)
-# ---------------------------------------------------------
 class SpatialAttention(nn.Module):
     def __init__(self):
         super().__init__()
@@ -280,10 +266,6 @@ class TransformerEncoder(nn.Module):
     def forward(self, x):
         return self.encoder(x)
 
-
-# ---------------------------------------------------------
-#   判别 + 分类共享 Backbone
-# ---------------------------------------------------------
 class SharedBackboneGANClassifier(nn.Module):
     def __init__(self, in_channels=128, cond_channels=8, d_model=256, num_classes=2):
         super().__init__()
@@ -298,25 +280,16 @@ class SharedBackboneGANClassifier(nn.Module):
             in_channels=in_channels + 32,
             out_channels=192
         )
-
-        # ---- 注意力 ----
         self.se = SEBlock(192)
         self.spatial = SpatialAttention()
-
-        # ---- 维度压缩到 Transformer 的输入维度 ----
         self.conv_reduce = nn.Conv2d(192, d_model, kernel_size=1)
-
-        # ---- Transformer ----
         self.transformer = TransformerEncoder(d_model=d_model)
-
-        # ---- 判别器头 ----
         self.discriminator_head = nn.Sequential(
             nn.Linear(d_model, 128),
             nn.ReLU(),
             nn.Linear(128, 1)  # 真/假
         )
 
-        # ---- 分类器头 ----
         self.classifier_head = nn.Sequential(
             nn.Linear(d_model, 128),
             nn.ReLU(),
@@ -329,33 +302,15 @@ class SharedBackboneGANClassifier(nn.Module):
         cond: (B, 8,   9, 9)
         """
 
-        # 1️⃣ 条件嵌入
         cond_feat = self.cond_embed(cond)   # (B, 32, 9, 9)
-
-        # 2️⃣ 条件融合（通道级）
         x = torch.cat([eeg, cond_feat], dim=1)  # (B, 160, 9, 9
-
         x = self.inception(x)
-
-        # 2. 通道注意力
         x = self.se(x)
-
-        # 3. 空间注意力
         x = self.spatial(x)
-
-        # 4. Conv1×1 压缩通道 → Transformer d_model
         x = self.conv_reduce(x)   # (B, d_model, 9, 9)
-
-        # 5. Flatten → 序列化
         x = x.flatten(2).transpose(1, 2)   # (B, 81, d_model)
-
-        # 6. Transformer
         x = self.transformer(x)
-
-        # 7. 取 CLS = 全局平均
         feat = x.mean(dim=1)  # (B, d_model)
-
-        # --- 输出 ---
         disc_out = self.discriminator_head(feat)  # (B, 1)
 
         return disc_out
@@ -367,25 +322,15 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 def compute_gradient_penalty(D, real_samples, fake_samples, cond_feat, device='cuda'):
     """
     WGAN-GP gradient penalty for conditional GAN
-    real_samples: (B, C, H, W) 真实 EEG
-    fake_samples: (B, C, H, W) 生成 EEG
-    cond_feat: (B, 8, 9, 9) DE&PSD 特征
     """
     batch_size = real_samples.size(0)
 
     # alpha shape: (B, 1, 1, 1)
     alpha = torch.rand(batch_size, 1, 1, 1, device=device)
-
-    # 插值
     interpolates = (alpha * real_samples + (1 - alpha) * fake_samples).requires_grad_(True)
-
-    # 判别器输出
     d_interpolates, _ = D(interpolates, cond_feat)
-
-    # fake tensor: ones_like
     fake = torch.ones_like(d_interpolates, device=device)
 
-    # 计算梯度
     gradients = torch.autograd.grad(
         outputs=d_interpolates,
         inputs=interpolates,
@@ -453,9 +398,7 @@ def generator_train(
             d_loss.backward()
             d_opt.step()
 
-            # =========================
             # Train Generator
-            # =========================
             if i % 7 == 0:
                 fake_eeg = generator(de_feat)
                 d_fake2, _ = discriminator(fake_eeg, de_feat)
