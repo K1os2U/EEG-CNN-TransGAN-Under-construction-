@@ -263,7 +263,7 @@ def classifier_pretrain(
         )
 
     torch.save(model.state_dict(), "Classifier_Pretrain_BinaryClass_Arousal.pth")
-    print("✅ Pre-classifier training finished.")
+    print(" Pre-classifier training finished.")
 
 if __name__ == '__main__':
     # Disable Flash Attention for compatibility
