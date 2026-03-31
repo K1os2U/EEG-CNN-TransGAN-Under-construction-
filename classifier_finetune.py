@@ -176,7 +176,7 @@ class Conv2DBlock(nn.Module):
 class EEGGenerator2DTransformer(nn.Module):
     def __init__(
         self,
-        in_channels=8,      # 输入 8 个频段通道
+        in_channels=8,    
         base_channels=(32, 64, 128),
         transformer_d_model=512,
         transformer_layers=4,
@@ -204,9 +204,7 @@ class EEGGenerator2DTransformer(nn.Module):
         self.proj_in = nn.Linear(self.token_dim, transformer_d_model)
         self.pos_enc = SinusoidalPositionalEncoding(transformer_d_model)
 
-        # -------------------------
         # Transformer
-        # -------------------------
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=transformer_d_model,
             nhead=nhead,
@@ -219,10 +217,7 @@ class EEGGenerator2DTransformer(nn.Module):
         # output projection: 512 → 1152
         self.proj_out = nn.Linear(transformer_d_model, self.token_dim)
 
-        # -------------------------
         # Decoder
-        # -------------------------
-        # reshape → (B,128,3,3)
         self.up1 = nn.Upsample(scale_factor=2, mode="bilinear", align_corners=False)  # 3→6
         self.dec1 = Conv2DBlock(128, 64)
 
@@ -242,9 +237,7 @@ class EEGGenerator2DTransformer(nn.Module):
 
         x = self.pool(x)   # → (B,128,3,3)
 
-        # -------------------------
         # Flatten → transformer tokens
-        # -------------------------
         B = x.size(0)
         x = x.reshape(B, -1)           # → (B, 1152)
         x = self.proj_in(x)            # → (B, 512)
@@ -256,14 +249,8 @@ class EEGGenerator2DTransformer(nn.Module):
         x = self.proj_out(x)           # → (B,1,1152)
         x = x.squeeze(1)               # → (B,1152)
 
-        # -------------------------
-        # reshape → feature map
-        # -------------------------
         x = x.view(B, 128, 3, 3)
 
-        # -------------------------
-        # Decoder: upsample → conv
-        # -------------------------
         x = self.up1(x)  # (B,128,6,6)
         x = self.dec1(x)  # (B,64,6,6)
 
@@ -274,9 +261,6 @@ class EEGGenerator2DTransformer(nn.Module):
         x = torch.tanh(x)
         return x * mask
 
-# ---------------------------------------------------------
-#  Inception 多尺度 2D 卷积模块
-# ---------------------------------------------------------
 class InceptionBlock(nn.Module):
     def __init__(self, in_channels, out_channels):
         super().__init__()
@@ -296,10 +280,6 @@ class InceptionBlock(nn.Module):
         x5 = self.relu(self.branch5(x))
         return torch.cat([x1, x3, x5], dim=1)
 
-
-# ---------------------------------------------------------
-# SE 通道注意力
-# ---------------------------------------------------------
 class SEBlock(nn.Module):
     def __init__(self, channels, reduction=8):
         super().__init__()
@@ -317,9 +297,6 @@ class SEBlock(nn.Module):
         return x * y
 
 
-# ---------------------------------------------------------
-# 空间注意力模块 (CBAM 风格)
-# ---------------------------------------------------------
 class SpatialAttention(nn.Module):
     def __init__(self):
         super().__init__()
@@ -334,11 +311,6 @@ class SpatialAttention(nn.Module):
         return x * att
 
 
-# ---------------------------------------------------------
-# Transformer Encoder (3 层)
-# 输入序列长度 = 81 (9×9)
-# 每个 token 的维度 = d_model
-# ---------------------------------------------------------
 class TransformerEncoder(nn.Module):
     def __init__(self, d_model=256, nhead=8, num_layers=3):
         super().__init__()
@@ -353,10 +325,6 @@ class TransformerEncoder(nn.Module):
     def forward(self, x):
         return self.encoder(x)
 
-
-# ---------------------------------------------------------
-#   判别 + 分类共享 Backbone
-# ---------------------------------------------------------
 class SharedBackboneClassifier(nn.Module):
     def __init__(self, in_channels=128, d_model=256, num_classes=2):
         super().__init__()
