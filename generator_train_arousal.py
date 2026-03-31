@@ -10,10 +10,7 @@ import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 from scipy.io import loadmat
 
-# -------------------------------
 # Configuration
-# -------------------------------
-
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 BATCH_SIZE = 64
 NUM_EPOCHS = 100
@@ -258,10 +255,7 @@ class SharedBackboneGANClassifier(nn.Module):
         return disc_out
 
 
-# -------------------------------
 # Loss & Training Utilities
-# -------------------------------
-
 def compute_gradient_penalty(
         D: nn.Module,
         real_samples,
