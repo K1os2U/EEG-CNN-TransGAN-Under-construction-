@@ -53,29 +53,22 @@ def extract_de_features(subject_data, sample_rate=128):
                         DE_features[trial_idx, win_idx, band_idx + 4, i, j] = compute_PSD(signal)
 
 
-    # reshape 为 (2400, 4, 9, 9)
     data = DE_features.reshape(-1, 8, 9, 9)
 
-    # 将标签flatten 为 (2400,)
     valence_labels = np.repeat(raw_label, 1, axis=1).reshape(1, -1)  # (1, 2400)
 
     return data, valence_labels
 
 def standardize_along_samples_per_channel(data):
-    # 创建空数组用于存放结果
     data_standardized = np.zeros_like(data)
 
-    # 遍历每个通道（第1轴）
-    for ch in range(data.shape[1]):  # 8个通道
-        # 对第 ch 个通道的所有样本进行标准化
+    for ch in range(data.shape[1]): 
         channel_data = data[:, ch, :, :]  # shape = (1200, 8, 9)
         mean = np.mean(channel_data, axis=0, keepdims=True)  # shape = (1, 8, 9)
         std = np.std(channel_data, axis=0, keepdims=True) + 1e-6
-        # 标准化：每个样本的位置减去该位置的通道均值并除以标准差
         data_standardized[:, ch, :, :] = (channel_data - mean) / std
 
     return data_standardized
-# 主处理流程
 def process_all_subjects(preprocessors_results, save_dir='./DE&PSD_feature'):
     os.makedirs(save_dir, exist_ok=True)
 
