@@ -82,12 +82,10 @@ class EEGDataset4D(Dataset):
 
             assert raw.shape[0] == de.shape[0] == lbl.shape[0]
 
-            # ---------- reshape to (trial, second, ...) ----------
             raw = raw.reshape(40, 60, 128, 9, 9)
             de  = de.reshape(40, 60, 8, 9, 9)
             lbl = lbl.reshape(40, 60)
 
-            # ---------- trial-level normalization ----------
             for t in range(40):
                 # ===== raw EEG =====
                 raw[t] = robust_norm(raw[t])
@@ -103,7 +101,6 @@ class EEGDataset4D(Dataset):
 
                 de[t] = de_trial
 
-            # ---------- flatten back to second ----------
             de_all.append(de.reshape(-1, 8, 9, 9))
             raw_all.append(raw.reshape(-1, 128, 9, 9))
             lbl_all.append(lbl.reshape(-1))
@@ -147,10 +144,6 @@ class InceptionBlock(nn.Module):
         x5 = self.relu(self.branch5(x))
         return torch.cat([x1, x3, x5], dim=1)
 
-
-# ---------------------------------------------------------
-# SE 通道注意力
-# ---------------------------------------------------------
 class SEBlock(nn.Module):
     def __init__(self, channels, reduction=8):
         super().__init__()
@@ -168,9 +161,6 @@ class SEBlock(nn.Module):
         return x * y
 
 
-# ---------------------------------------------------------
-# 空间注意力模块 (CBAM 风格)
-# ---------------------------------------------------------
 class SpatialAttention(nn.Module):
     def __init__(self):
         super().__init__()
@@ -185,11 +175,6 @@ class SpatialAttention(nn.Module):
         return x * att
 
 
-# ---------------------------------------------------------
-# Transformer Encoder (3 层)
-# 输入序列长度 = 81 (9×9)
-# 每个 token 的维度 = d_model
-# ---------------------------------------------------------
 class TransformerEncoder(nn.Module):
     def __init__(self, d_model=256, nhead=8, num_layers=3):
         super().__init__()
@@ -298,7 +283,7 @@ def train_preclassifier_with_eval(
         batch_size=batch_size,
         shuffle=True,
         drop_last=True,
-        num_workers=0    # Windows 必须
+        num_workers=0    
     )
 
     test_loader = DataLoader(
@@ -379,7 +364,7 @@ def train_preclassifier_with_eval(
 
     torch.save(model.state_dict(),"preclassifier_raw_eeg_with_split.pth")
 
-    print("✅ Pre-classifier training + evaluation finished.")
+    print("Pre-classifier training + evaluation finished.")
 
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
