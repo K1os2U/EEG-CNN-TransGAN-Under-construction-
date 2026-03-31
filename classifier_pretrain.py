@@ -272,9 +272,6 @@ def train_preclassifier_with_eval(
     seed=42,
     device='cuda'
 ):
-    # -------------------------
-    # 固定随机种子 & 划分数据
-    # -------------------------
     set_seed(seed)
     train_set, test_set = split_dataset(dataset, 0.8, seed)
 
@@ -309,9 +306,6 @@ def train_preclassifier_with_eval(
     )
 
     for epoch in range(epochs):
-        # =========================
-        # Train
-        # =========================
         model.train()
         train_loss = 0
 
@@ -331,9 +325,7 @@ def train_preclassifier_with_eval(
 
         scheduler.step()
 
-        # =========================
         # Test / Evaluation
-        # =========================
         model.eval()
         all_preds = []
         all_labels = []
